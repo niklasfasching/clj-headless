@@ -1,0 +1,11 @@
+* chrome remote debugging library [[https://travis-ci.org/niklasfasching/headless.svg?branch=master]]
+
+A minimal (< 500 LOC) chrome remote debugging protocol implementation in clojure.
+
+Only 2 dependencies: [[https://github.com/clojure/data.json][clojure/data.json]] & [[https://github.com/niklasfasching/yawc][yawc]].
+
+* Related / Inspiration
+- https://github.com/tatut/clj-chrome-devtools/ (didn't use this because i didn't want all those dependencies.
+  also not a whole lot of documentation on architecture choices.)
+- https://github.com/cavalle/chrome_remote
+- https://github.com/GoogleChrome/puppeteer
