@@ -1,4 +1,4 @@
-* chrome remote debugging library
+* chrome remote debugging library [[https://travis-ci.org/niklasfasching/headless.svg?branch=master]]
 
 A minimal (< 500 LOC) chrome remote debugging protocol implementation in clojure.
 
