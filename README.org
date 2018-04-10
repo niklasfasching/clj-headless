@@ -4,6 +4,24 @@ A minimal (< 500 LOC) chrome remote debugging protocol implementation in clojure
 
 Only 2 dependencies: [[https://github.com/clojure/data.json][clojure/data.json]] & [[https://github.com/niklasfasching/yawc][yawc]].
 
+#+BEGIN_SRC clojure
+(use '[headless.core :as h])
+
+;; assuming chromium is listening at localhost:9222
+;; started with e.g. "chromium-browser --remote-debugging-port=9222"
+(let [connection (h/connect {:host "localhost" :port 9222})]
+  (h/visit connection "http://example.com/")
+  (->> (h/select-one connection "h1")
+       (h/text connection))) ;; => "Example Domain"
+#+END_SRC
+
+* Todo
+- some domains have to be enabled before notifications are sent!
+- some domains have to be enabled before ANY methods work at all
+  e.g. https://chromedevtools.github.io/devtools-protocol/tot/CSS
+- handle "Inspector.detached" event sent when connection is closed
+- caching
+
 * Related / Inspiration
 - https://github.com/tatut/clj-chrome-devtools/ (didn't use this because i didn't want all those dependencies.
   also not a whole lot of documentation on architecture choices.)

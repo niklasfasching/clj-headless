@@ -1,6 +1,7 @@
 (ns headless.core
   (:require [clojure.data.json :as json]
             [clojure.string :as string]
+            [headless.generate :as generate]
             [headless.util :as util]
             [yawc.core :as yawc])
   (:import [java.net Socket]))
@@ -107,3 +108,108 @@
       @(execute connection (str domain ".enable") {}))
     (swap! event-handlers update-in [event-name] #(conj % handler))
     (partial deregister-event-handler connection event-name handler)))
+
+(defmacro with-await-event
+  "Execute `body` & await event from `register-event`. Returns result of `body`.
+  Registers an event-handler for event using `register-event` and deregisters it
+  afterwards."
+  [connection register-event & body]
+  `(let [event-promise# (promise)
+         handler# (fn [~'event] (deliver event-promise# ~'event))
+         deregister# (~register-event ~connection handler#)
+         result# (do ~@body)]
+     @event-promise#
+     (deregister#)
+     result#))
+
+(generate/commands-and-events "devtools-protocol/json/browser_protocol.json")
+
+(generate/commands-and-events "devtools-protocol/json/js_protocol.json")
+
+(defn visit
+  "Visits `url` on `connection`. Caches root-node-id in connection `properties`.
+  To select elements, we need a root node - generally we want this to be
+  the root-node of the document. As node-ids are recreated whenever
+  the Page.getDocument method is called, we must cache the node-id of the
+  document root. Otherwise we invalidate all node ids whenever we want to select
+  an element (from the whole document)."
+  [connection url]
+  (let [result (with-await-event connection
+                 page-on-frame-stopped-loading
+                 @(page-navigate connection :url url))
+        document @(dom-get-document connection)
+        root-node-id (-> document :root :nodeId)]
+    (swap! (:properties connection) assoc :root-node-id root-node-id)
+    result))
+
+(defn select-one
+  "Select first element for css `selector` on `connection`. Returns node-id.
+  Optionally, limit selection to children of `node-id` (defaults to document
+  root)."
+  ([connection selector]
+   (select-one connection selector (:root-node-id @(:properties connection))))
+  ([connection selector node-id]
+   (let [{id :nodeId} @(dom-query-selector
+                        connection :nodeId node-id :selector selector)]
+     (if (= id 0) nil id))))
+
+(defn select
+  "Select elements for css `selector` on `connection`. Returns node-id array.
+  Optionally, limit selection to children of `node-id` (defaults to document
+  root)."
+  ([connection selector]
+   (select connection selector (:root-node-id @(:properties connection))))
+  ([connection selector node-id]
+   (let [result @(dom-query-selector-all
+                  connection :nodeId node-id :selector selector)]
+     (:nodeIds result))))
+
+(defn evaluate
+  "Evaluate `js-function` on `connection` with `node-id` bound to this.
+  Throws exception when evaluation does not succeed.
+  Example `js-function`: \"function() { return this.innerText; }\"."
+  [connection node-id js-function]
+  (let [objectId (-> @(dom-resolve-node connection :nodeId node-id)
+                     :object :objectId)
+        {:keys [result exceptionDetails]} @(runtime-call-function-on
+                                            connection
+                                            :returnByValue true
+                                            :functionDeclaration js-function
+                                            :objectId objectId)]
+    (if exceptionDetails
+      (throw (ex-info js-function exceptionDetails))
+      (:value result))))
+
+(defn html
+  "Returns outer html of `node-id` from `connection`.
+  The `dom-get-outer-html` method did not always work as expected (e.g. for
+  title) so we do it the hard way."
+  [connection node-id]
+  (evaluate connection node-id "function() { return this.outerHTML; }"))
+
+(defn text
+  "Returns inner text of `node-id` from `connection`."
+  [connection node-id]
+  (evaluate connection node-id "function() { return this.innerText; }"))
+
+(defn attributes
+  "Returns attributes map of `node-id` from `connection`."
+  [connection node-id]
+  (->> @(dom-get-attributes connection :nodeId node-id)
+       :attributes
+       (apply assoc {})))
+
+(defn attribute
+  "Returns attribute with name `name` of `node-id` from `connection`."
+  [connection node-id name]
+  (-> (attributes connection node-id)
+      (get name)))
+
+(defn click
+  "Scroll `node-id` from `connection` into view and click on it."
+  [connection node-id]
+  (->> "function() {
+          this.scrollIntoViewIfNeeded();
+          this.click();
+        }"
+       (evaluate connection node-id)))
