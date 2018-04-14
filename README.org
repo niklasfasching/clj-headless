@@ -1,6 +1,15 @@
 * chrome remote debugging library [[https://travis-ci.org/niklasfasching/headless.svg?branch=master]]
 
-A minimal (< 500 LOC) chrome remote debugging protocol implementation in clojure.
+A minimal (< +500 LOC+ 1000 LOC) chrome remote debugging protocol implementation in clojure.
+
+#+BEGIN_SRC clojure
+(require '[headless.core :as headless])
+;; chrome started with e.g. "chromium-browser --remote-debugging-port=9222"
+(let [connection (headless/connect :host "localhost" :port 9222)]
+  (headless/visit connection "http://example.com/")
+  (->> (headless/select-one connection "h1")
+       (headless/text connection))) ;; => "Example Domain"
+#+END_SRC
 
 Only 2 dependencies: [[https://github.com/clojure/data.json][clojure/data.json]] & [[https://github.com/niklasfasching/yawc][yawc]].
 
