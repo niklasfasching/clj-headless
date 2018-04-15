@@ -63,7 +63,7 @@
   registered for it."
   [{:keys [event-handlers] :as connection} event-name handler]
   (let [domain (domain-name event-name)]
-    (swap! event-handlers update-in [event-name] #(remove #{handler} %))
+    (swap! event-handlers update-in [event-name] #(vec (remove #{handler} %)))
     (when-not (handlers-for-domain? @event-handlers domain)
       (execute connection (str domain ".disable") {}))))
 
@@ -76,7 +76,7 @@
   (let [domain (domain-name event-name)]
     (when-not (handlers-for-domain? @event-handlers domain)
       (execute connection (str domain ".enable") {}))
-    (swap! event-handlers update-in [event-name] #(conj % handler))
+    (swap! event-handlers update-in [event-name] #(vec (conj % handler)))
     (partial deregister-event-handler connection event-name handler)))
 
 (defn register-default-event-handlers
