@@ -81,18 +81,18 @@
 
 (defn register-default-event-handlers
   "Registers some useful handlers in `event-handlers`.
-  - Update root-node-id on `page-on-frame-navigated`.
+  - Update root-node-id on `page-on-frame-stopped-loading`.
     Whenever the document is updated (or is fetched via `dom-get-document`) all
     existing node-ids become invalid, so we have to cache it.
-    Listenig to `page-on-frame-navigated` rather than `dom-on-document-updated`
-    as the latter somehow fires multiple times."
+    Listenig to `page-on-frame-stopped-loading` as that's what the visit fns
+    listen on and `dom-on-document-updated` somehow fires multiple times."
   [{:keys [properties event-handlers] :as connection}]
   (let [root-node-id (fn [event]
                        (->> (execute connection "DOM.getDocument" {})
                             :root
                             :nodeId
                             (swap! properties assoc :root-node-id)))]
-    (register-event-handler connection "Page.frameNavigated" root-node-id)))
+    (register-event-handler connection "Page.frameStoppedLoading" root-node-id)))
 
 (defn open-page
   "Opens a new page (~= tab) at `host`:`port`. Returns the page-id."
